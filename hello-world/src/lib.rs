@@ -13,7 +13,7 @@ struct HelloWorldModule {
 
 impl linux_kernel_module::KernelModule for HelloWorldModule {
     fn init() -> linux_kernel_module::KernelResult<Self> {
-        println!("Hello kernel module!");
+        println!("Hello kernel module from rust!");
         Ok(HelloWorldModule {
             message: "on the heap!".to_owned(),
         })
@@ -23,7 +23,7 @@ impl linux_kernel_module::KernelModule for HelloWorldModule {
 impl Drop for HelloWorldModule {
     fn drop(&mut self) {
         println!("My message is {}", self.message);
-        println!("Goodbye kernel module!");
+        println!("Goodbye kernel module from rust!");
     }
 }
 

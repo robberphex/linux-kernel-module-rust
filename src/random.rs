@@ -11,12 +11,13 @@ pub fn getrandom(dest: &mut [u8]) -> error::KernelResult<()> {
         return Err(error::Error::from_kernel_errno(res));
     }
 
-    unsafe {
-        bindings::get_random_bytes(
-            dest.as_mut_ptr() as *mut c_types::c_void,
-            dest.len().try_into()?,
-        );
-    }
+    // FIXME !
+    // unsafe {
+    //     bindings::get_random_bytes(
+    //         dest.as_mut_ptr() as *mut c_types::c_void,
+    //         dest.len().try_into()?,
+    //     );
+    // }
     Ok(())
 }
 
