@@ -1,5 +1,6 @@
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use std::process::Command;
 use std::{env, fs};
 
 const INCLUDED_TYPES: &[&str] = &["file_system_type", "mode_t", "umode_t", "ctl_table"];
@@ -130,17 +131,17 @@ fn prepare_cflags(cflags: &str, kernel_dir: &str) -> Vec<String> {
 }
 
 fn main() {
-    println!("cargo:rerun-if-env-changed=CC");
-    println!("cargo:rerun-if-env-changed=KDIR");
-    println!("cargo:rerun-if-env-changed=c_flags");
+    // println!("cargo:rerun-if-env-changed=CC");
+    // println!("cargo:rerun-if-env-changed=KDIR");
+    // println!("cargo:rerun-if-env-changed=c_flags");
 
-    let kernel_dir = env::var("KDIR").expect("Must be invoked from kernel makefile");
-    let kernel_cflags = env::var("c_flags").expect("Add 'export c_flags' to Kbuild");
-    let kbuild_cflags_module =
-        env::var("KBUILD_CFLAGS_MODULE").expect("Must be invoked from kernel makefile");
+    // let kernel_dir = env::var("KDIR").expect("Must be invoked from kernel makefile");
+    // let kernel_cflags = env::var("c_flags").expect("Add 'export c_flags' to Kbuild");
+    // let kbuild_cflags_module =
+    //     env::var("KBUILD_CFLAGS_MODULE").expect("Must be invoked from kernel makefile");
 
-    let cflags = format!("{} {}", kernel_cflags, kbuild_cflags_module);
-    let kernel_args = prepare_cflags(&cflags, &kernel_dir);
+    // let cflags = format!("{} {}", kernel_cflags, kbuild_cflags_module);
+    // let kernel_args = prepare_cflags(&cflags, &kernel_dir);
 
     let target = env::var("TARGET").unwrap();
 
@@ -149,10 +150,28 @@ fn main() {
         .ctypes_prefix("c_types")
         .derive_default(true)
         .size_t_is_usize(true)
-        .rustfmt_bindings(true);
+        .rustfmt_bindings(true)
+        .clang_arg(format!("--target={}", target));
 
-    builder = builder.clang_arg(format!("--target={}", target));
-    for arg in kernel_args.iter() {
+    let output = String::from_utf8(
+        Command::new("make")
+            .arg("-C")
+            .arg("kernel-cflags-finder")
+            .arg("-s")
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+
+    Command::new("make")
+        .arg("-C")
+        .arg("kernel-cflags-finder")
+        .arg("clean");
+
+    println!("get output:{}", output);
+
+    for arg in shlex::split(&output).unwrap() {
         builder = builder.clang_arg(arg.clone());
     }
 
@@ -179,16 +198,16 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     handle_kernel_version_cfg(&out_path.join("bindings.rs"));
-    handle_kernel_symbols_cfg(&PathBuf::from(&kernel_dir).join("Module.symvers"));
+    //handle_kernel_symbols_cfg(&PathBuf::from(&kernel_dir).join("Module.symvers"));
 
     let mut builder = cc::Build::new();
     builder.compiler(env::var("CC").unwrap_or_else(|_| "clang".to_string()));
     builder.target(&target);
     builder.warnings(false);
-    println!("cargo:rerun-if-changed=src/helpers.c");
-    builder.file("src/helpers.c");
-    for arg in kernel_args.iter() {
+    for arg in shlex::split(&output).unwrap() {
         builder.flag(&arg);
     }
+    println!("cargo:rerun-if-changed=src/helpers.c");
+    builder.file("src/helpers.c");
     builder.compile("helpers");
 }
